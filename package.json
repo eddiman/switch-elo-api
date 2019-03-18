@@ -1,0 +1,24 @@
+{
+  "name": "switch-elo-api",
+  "version": "0.0.1",
+  "description": "Simple API",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eddiman/switch-elo-api.git"
+  },
+  "author": "Edvard Pires Bjørgen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/eddiman/switch-elo-api/issues"
+  },
+  "homepage": "https://github.com/eddiman/switch-elo-api#readme",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "express": "^4.16.4",
+    "mongodb": "^3.1.13"
+  }
+}
