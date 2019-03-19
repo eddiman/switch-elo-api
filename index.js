@@ -21,7 +21,7 @@ app.post('/switch/newuser', function(req, res, next) {
   MongoClient.connect(url, function(err, db) {
     if (err) throw err;
     var dbo = db.db("db");
-    
+
     var compareObj = { userName : req.body.userName };
     var user = { userName: req.body.userName, creationDate : new Date().getTime()};
 
@@ -45,12 +45,22 @@ app.post('/switch/addgame', function(req, res, next) {
     var compareObj = { gameName : req.body.gameName};
     var game = { gameName: req.body.gameName};
 
-    if(mongoHelper.insertObjToCollection(db, dbo, compareObj, game, "games")){
-      res.send("Added object");
-    } else {
-      res.send("Already exists");
-    }
-    db.close();
+    dbo.collection("games").findOne(compareObj, function(err, doc) {
+      if( doc == null ) {
+        dbo.collection("games").insertOne(game, function(err, result) {
+          if (err) throw err;
+          console.log("1 document inserted");
+          res.send(game);
+          db.close();
+        });
+
+      } else {
+        res.send("exists");
+
+        db.close();
+      }
+    });
+
   });
 });
 
