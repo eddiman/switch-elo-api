@@ -2,103 +2,121 @@ var express = require('express');
 var mongo = require('mongodb');
 var bodyParser = require('body-parser');
 var mongoHelper = require('./mongoHelper');
+var admin = require("firebase-admin");
 
 var app = express();
-var db = "db";
+
+
+var serviceAccount = require("./config/serviceAccountKey.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: "https://switchelo.firebaseio.com"
+});
+const db = admin.database();
+
 app.use(bodyParser.json());       // to support JSON-encoded bodies
 app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
   extended: true
 }));
 
-var baseUrl = "localhost:8000";
+const baseUrl = "localhost:8000";
 
+/************************************** USER **********************************************/
 
-app.post('/switch/newuser', function(req, res, next) {
-  var MongoClient = require('mongodb').MongoClient;
-  var url = "mongodb://localhost:27017/";
-  console.log("from post " + req.body.userName);
+app.put('/switch/user', (req, res) => {
+  const {userName} = req.body;
+  const userInfo = { userName: userName, creationDate : new Date().getTime()};
 
-  MongoClient.connect(url, function(err, db) {
-    if (err) throw err;
-    var dbo = db.db("db");
-
-    var compareObj = { userName : req.body.userName };
-    var user = { userName: req.body.userName, creationDate : new Date().getTime()};
-
-    if(mongoHelper.insertObjToCollection(db, dbo, compareObj, user, "users")){
-      res.send("Added object");
+  db.ref(`user/${userName}`).setLocale({userInfo}, error => {
+    if (error) {
+      res.sendStatus(500);
     } else {
-      res.send("Already exists");
+      res.sendStatus(201);
     }
   });
-
 });
 
-app.post('/switch/addgame', function(req, res, next) {
-  var MongoClient = require('mongodb').MongoClient;
-  var url = "mongodb://localhost:27017/";
-  console.log("from post " + req.body.gameName);
+app.post('/switch/user', async (req, res) => {
+  const {userName} = req.body;
+  const userInfo = { userName: userName, creationDate : new Date().getTime()};
+  const userSnapshot = await db.ref(`user/${userName}`).once('value');
+  const response = Object.assign({}, userSnapshot.val());
 
-  MongoClient.connect(url, function(err, db) {
-    if (err) throw err;
-    var dbo = db.db("db");
-    var compareObj = { gameName : req.body.gameName};
-    var game = { gameName: req.body.gameName};
-
-    dbo.collection("games").findOne(compareObj, function(err, doc) {
-      if( doc == null ) {
-        dbo.collection("games").insertOne(game, function(err, result) {
-          if (err) throw err;
-          console.log("1 document inserted");
-          res.send(game);
-          db.close();
-        });
-
+  if((Object.entries(response).length === 0) || (response.userInfo.userName.toUpperCase() != userName.toUpperCase())) {
+    db.ref(`user/${userName}`).set({userInfo}, error => {
+      if (error) {
+        res.sendStatus(500);
       } else {
-        res.send("exists");
-
-        db.close();
+        res.sendStatus(201);
       }
     });
+  } else {
+    res.send("User exists");
+  }
+});
 
-  });
+app.get('/switch/user/', async (req, res) => {
+  const {userName} = req.query;
+  const userSnapshot = await db.ref(`user/${userName}`).once('value');
+  // GOOD
+  const response = Object.assign({}, userSnapshot.val());
+  res.send(response);
+
+
 });
 
 
+/************************************** GAMES **********************************************/
 
-app.get('/switch/getallusers', function(req, res, next) {
-  var MongoClient = require('mongodb').MongoClient;
-  var url = "mongodb://localhost:27017/";
+app.post('/switch/game', async (req, res) => {
+  const {gameName} = req.body;
 
-  MongoClient.connect(url, function(err, db) {
-    if (err) throw err;
-    var dbo = db.db("db");
-
-    dbo.collection("users").find({}).toArray(function(err, result) {
-      if (err) throw err;
-      res.send(result);
-      db.close();
-
+  var ref = db.ref('game').orderByChild('gameName').equalTo(gameName);
+  ref.once('value', snapshot => {
+    if (!snapshot.exists()) {
+      db.ref(`game/`).push({
+        gameName: gameName,
+        creationDate : new Date().getTime()}, error => {
+          if (error) {
+            res.sendStatus(500);
+          } else {
+            res.sendStatus(201);
+          }
+        });
+      } else {
+        console.log("Game exists");
+        res.send("Game exists");
+      }
     });
-  });
 });
 
-app.post('/switch/getuser', function(req, res, next) {
-  var MongoClient = require('mongodb').MongoClient;
-  var url = "mongodb://localhost:27017/";
+app.get('/switch/game/', (req, res) => {
+  const {gameName} = req.query;
 
-  MongoClient.connect(url, function(err, db) {
-    if (err) throw err;
-    var dbo = db.db("db");
+  var ref = db.ref('game').orderByChild('gameName').equalTo(gameName);
+  ref.once('value', snapshot => {
+    if (snapshot.exists()) {
+      const response = Object.assign({}, snapshot.val());
+      res.send(response);
+      } else {
+        res.send("Game doesnt exist");
 
-    dbo.collection("users").findOne({ userName : req.body.userName}, function(err, result) {
-      if (err) throw err;
-      res.send(result);
-      db.close();
-
+      }
     });
-  });
 });
+
+app.get('/switch/games/', async (req, res) => {
+  const {gameName} = req.query;
+  const gameSnapshot = await db.ref(`game/`).once('value');
+
+  const response = Object.assign({}, gameSnapshot.val());
+  res.send(response);
+});
+
+
+
+
 
 var port = process.env.PORT || 8000;
 app.listen(port, "0.0.0.0");
