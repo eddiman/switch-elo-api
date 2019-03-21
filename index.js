@@ -39,31 +39,39 @@ app.put('/switch/user', (req, res) => {
 
 app.post('/switch/user', async (req, res) => {
   const {userName} = req.body;
-  const userInfo = { userName: userName, creationDate : new Date().getTime()};
-  const userSnapshot = await db.ref(`user/${userName}`).once('value');
-  const response = Object.assign({}, userSnapshot.val());
 
-  if((Object.entries(response).length === 0) || (response.userInfo.userName.toUpperCase() != userName.toUpperCase())) {
-    db.ref(`user/${userName}`).set({userInfo}, error => {
-      if (error) {
-        res.sendStatus(500);
+  var ref = db.ref('user').orderByChild('userName').equalTo(userName);
+  ref.once('value', snapshot => {
+    if (!snapshot.exists()) {
+      db.ref(`user/`).push({
+        userName: userName,
+        creationDate : new Date().getTime()}, error => {
+          if (error) {
+            res.sendStatus(500);
+          } else {
+            res.sendStatus(201);
+          }
+        });
       } else {
-        res.sendStatus(201);
+        console.log("User exists");
+        res.send("User exists");
       }
     });
-  } else {
-    res.send("User exists");
-  }
 });
 
-app.get('/switch/user/', async (req, res) => {
+app.get('/switch/user/', (req, res) => {
   const {userName} = req.query;
-  const userSnapshot = await db.ref(`user/${userName}`).once('value');
-  // GOOD
-  const response = Object.assign({}, userSnapshot.val());
-  res.send(response);
 
+  var ref = db.ref('user').orderByChild('userName').equalTo(userName);
+  ref.once('value', snapshot => {
+    if (snapshot.exists()) {
+      const response = Object.assign({}, snapshot.val());
+      res.send(response);
+      } else {
+        res.send("user doesnt exist");
 
+      }
+    });
 });
 
 
@@ -113,8 +121,6 @@ app.get('/switch/games/', async (req, res) => {
   const response = Object.assign({}, gameSnapshot.val());
   res.send(response);
 });
-
-
 
 
 
