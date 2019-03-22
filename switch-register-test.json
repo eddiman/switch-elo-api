@@ -1,0 +1,29 @@
+{
+  "game":"Super Smash Bros Ultimate",
+
+  "winner": {
+    "-La_n03igw_1TN_pD-X7": {
+        "creationDate": 1553264808333,
+        "lose": 1,
+        "score": 1510,
+        "userName": "edd",
+        "wins": 1
+    }
+  },
+  "losers" : {
+    "-La_n3KiH4BInnGFDyLn": {
+        "creationDate": 1553264821708,
+        "lose": 0,
+        "score": 1500,
+        "userName": "test",
+        "wins": 0
+    },
+    "-La_n4IsbE-IQxnGcHkc": {
+        "creationDate": 1553264825687,
+        "lose": 0,
+        "score": 1500,
+        "userName": "helge",
+        "wins": 0
+    }
+  }
+}
