@@ -141,18 +141,20 @@ app.post('/switch/game', async (req, res) => {
 
   /************************************** SCORE **********************************************/
   app.post('/switch/register', (req, res) => {
-    const {winner, losers} = req.body;
-    registerWinnerToFireBase(winner[0]);
+    const {game, winner, losers} = req.body;
+    let error = "";
+    error = registerWinnerToFireBase(game, winner[0]);
 
     losers.forEach(loserKey => {
-      registerLoserToFireBase(loserKey);
+      error = registerLoserToFireBase(game, loserKey);
     });
 
-    createHistoricalMatch();
-    res.send("Registered")
+    //error = createHistoricalMatch(game, winner, losers);
+    setNoOfGameMatches();
+    res.send(error)
   });
 
-  function registerWinnerToFireBase(userWinnerId){
+  function registerWinnerToFireBase(game, userWinnerId){
     //const userKey = Object.keys(userWinner)[0];
     var ref = db.ref('user').orderByKey().equalTo(userWinnerId);
     ref.once('value', snapshot => {
@@ -160,6 +162,20 @@ app.post('/switch/game', async (req, res) => {
       const newScore = 0;
       snapshot.forEach(child => {
         const user = child.val();
+
+        if(!user.hasOwnProperty("gamesPlayed") ) {
+          child.ref.update({
+            gamesPlayed: {[game] : {wins: 1, lose: 0}}
+          });
+
+        } else {
+          console.log()
+          //if game has been played before, insert game in to gamesPlayed collection
+              db.ref('user/' + userWinnerId +'/gamesPlayed').update({
+                [game] : {wins: user.gamesPlayed[game].wins+1, lose: 0}
+            });
+
+        }
         const newWinCount = user.wins + 1;
         const newScore = calculateWinScore( user.score);
 
@@ -173,12 +189,12 @@ app.post('/switch/game', async (req, res) => {
     },
     error => {
       if (error) {
-        res.sendStatus(500);
-      } else {
-        res.sendStatus(201);
+        return error;
       }
     });
   }
+
+
   function registerLoserToFireBase(userLoserId){
     //const userKey = Object.keys(userWinner)[0];
     var ref = db.ref('user').orderByKey().equalTo(userLoserId);
@@ -200,25 +216,41 @@ app.post('/switch/game', async (req, res) => {
     },
     error => {
       if (error) {
-        res.sendStatus(500);
-      } else {
-        res.sendStatus(201);
+        return error;
       }
     });
   }
 
-function createHistoricalMatch() {
+  function createHistoricalMatch(game, winner, losers) {
 
-}
+    db.ref(`matches/`).push({
+      gameName: game,
+      winner: winner,
+      losers: losers,
+      status: "finished",
+      creationDate : new Date().getTime()},
+
+    },
+      error => {
+        if (error) {
+          return error;
+        }
+      });
+    }
+
+    function setNoOfGameMatches() {
+
+    }
 
 
-  function calculateWinScore(score) {
-    return score + 10;
-  }
-  function calculateLoseScore(score) {
-    return score - 10;
-  }
 
-  var port = process.env.PORT || 8000;
-  app.listen(port, "0.0.0.0");
-  console.log('Running on http://localhost:8000');
+    function calculateWinScore(score) {
+      return score + 10;
+    }
+    function calculateLoseScore(score) {
+      return score - 10;
+    }
+
+    var port = process.env.PORT || 8000;
+    app.listen(port, "0.0.0.0");
+    console.log('Running on http://localhost:8000');
