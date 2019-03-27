@@ -142,32 +142,59 @@ app.post('/switch/game', async (req, res) => {
   /************************************** SCORE **********************************************/
   app.post('/switch/register', (req, res) => {
     const {winner, losers} = req.body;
-    registerWinnerToFireBase(winner);
+    registerWinnerToFireBase(winner[0]);
+
+    losers.forEach(loserKey => {
+      registerLoserToFireBase(loserKey);
+    });
+
+    createHistoricalMatch();
+    res.send("Registered")
   });
-  function registerWinnerToFireBase(userWinner){
 
-    const userKey = Object.keys(userWinner)[0];
-
-
-    var ref = db.ref('user').orderByKey().equalTo(userKey);
+  function registerWinnerToFireBase(userWinnerId){
+    //const userKey = Object.keys(userWinner)[0];
+    var ref = db.ref('user').orderByKey().equalTo(userWinnerId);
     ref.once('value', snapshot => {
-      //console.log(snapshot.child(userKey));
-      let userName = "";
       const newWinCount = 0;
+      const newScore = 0;
+      snapshot.forEach(child => {
+        const user = child.val();
+        const newWinCount = user.wins + 1;
+        const newScore = calculateWinScore( user.score);
+
+        child.ref.update({
+          wins: newWinCount,
+          score: newScore,
+        });
+
+      });
+
+    },
+    error => {
+      if (error) {
+        res.sendStatus(500);
+      } else {
+        res.sendStatus(201);
+      }
+    });
+  }
+  function registerLoserToFireBase(userLoserId){
+    //const userKey = Object.keys(userWinner)[0];
+    var ref = db.ref('user').orderByKey().equalTo(userLoserId);
+    ref.once('value', snapshot => {
       const newLoseCount = 0;
       const newScore = 0;
       snapshot.forEach(child => {
         const user = child.val();
+        const newLoseCount = user.lose + 1;
+        const newScore = calculateLoseScore(user.score);
 
-        const newWinCount = user.wins + 1;
-        const newLoseCount = user.lose+ 1;
-        const newScore = calculateWinScore( user.score);
-
-        snapshot.ref.update({
-          wins: newWinCount,
+        child.ref.update({
           lose: newLoseCount,
           score: newScore,
         });
+
       });
 
     },
@@ -180,11 +207,16 @@ app.post('/switch/game', async (req, res) => {
     });
   }
 
+function createHistoricalMatch() {
 
+}
 
 
   function calculateWinScore(score) {
     return score + 10;
+  }
+  function calculateLoseScore(score) {
+    return score - 10;
   }
 
   var port = process.env.PORT || 8000;
