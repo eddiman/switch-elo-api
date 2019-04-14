@@ -3,8 +3,10 @@ var mongo = require('mongodb');
 var bodyParser = require('body-parser');
 var mongoHelper = require('./mongoHelper');
 var admin = require("firebase-admin");
+var cors = require("cors");
 
-var app = express();
+//var app = express();
+const app=express().use('*', cors());
 
 
 var serviceAccount = require("./config/serviceAccountKey.json");
@@ -19,6 +21,9 @@ app.use(bodyParser.json());       // to support JSON-encoded bodies
 app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
   extended: true
 }));
+
+app.use(cors());
+
 
 const baseUrl = "localhost:8000";
 
@@ -149,17 +154,15 @@ app.post('/switch/game', async (req, res) => {
       error = registerLoserToFireBase(game, loserKey);
     });
 
-    //error = createHistoricalMatch(game, winner, losers);
+    error = createHistoricalMatch(game, winner, losers);
     setNoOfGameMatches();
     res.send(error)
   });
 
-  function registerWinnerToFireBase(game, userWinnerId){
+  function registerWinnerToFireBase(game, userId){
     //const userKey = Object.keys(userWinner)[0];
-    var ref = db.ref('user').orderByKey().equalTo(userWinnerId);
+    var ref = db.ref('user').orderByKey().equalTo(userId);
     ref.once('value', snapshot => {
-      const newWinCount = 0;
-      const newScore = 0;
       snapshot.forEach(child => {
         const user = child.val();
 
@@ -171,7 +174,7 @@ app.post('/switch/game', async (req, res) => {
         } else {
           console.log()
           //if game has been played before, insert game in to gamesPlayed collection
-              db.ref('user/' + userWinnerId +'/gamesPlayed').update({
+              db.ref('user/' + userId +'/gamesPlayed').update({
                 [game] : {wins: user.gamesPlayed[game].wins+1, lose: 0}
             });
 
@@ -195,24 +198,34 @@ app.post('/switch/game', async (req, res) => {
   }
 
 
-  function registerLoserToFireBase(userLoserId){
+  function registerLoserToFireBase(game, userId){
     //const userKey = Object.keys(userWinner)[0];
-    var ref = db.ref('user').orderByKey().equalTo(userLoserId);
+    var ref = db.ref('user').orderByKey().equalTo(userId);
     ref.once('value', snapshot => {
-      const newLoseCount = 0;
-      const newScore = 0;
       snapshot.forEach(child => {
         const user = child.val();
+
+        if(!user.hasOwnProperty("gamesPlayed") ) {
+          child.ref.update({
+            gamesPlayed: {[game] : {wins: 0, lose: 1}}
+          });
+
+        } else {
+          console.log()
+          //if game has been played before, insert game in to gamesPlayed collection
+              db.ref('user/' + userId +'/gamesPlayed').update({
+                [game] : {wins: 0, lose:  user.gamesPlayed[game].lose+1}
+            });
+
+        }
         const newLoseCount = user.lose + 1;
-        const newScore = calculateLoseScore(user.score);
+        const newScore = calculateLoseScore( user.score);
 
         child.ref.update({
           lose: newLoseCount,
           score: newScore,
         });
-
       });
-
     },
     error => {
       if (error) {
@@ -230,7 +243,6 @@ app.post('/switch/game', async (req, res) => {
       status: "finished",
       creationDate : new Date().getTime()},
 
-    },
       error => {
         if (error) {
           return error;
@@ -238,7 +250,7 @@ app.post('/switch/game', async (req, res) => {
       });
     }
 
-    function setNoOfGameMatches() {
+    function setTimesPlayed() {
 
     }
 
